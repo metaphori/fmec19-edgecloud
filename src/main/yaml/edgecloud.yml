@@ -1,0 +1,281 @@
+variables:
+  random: &random
+    min: 0
+    max: 29
+    step: 1
+    default: 2
+  commRadius: &commRadius
+    min: 35
+    max: 55
+    step: 15.0
+    default: 50.0
+  grain: &grain
+    min: 100.0
+    max: 300.0
+    step: 100.0
+    default: 100.0 # mean size of areas
+  batchFreq: &batchFreq
+    formula: 10
+  lowDensityThreshold: &lowDensityThreshold
+    formula: 5.0
+  highDensityThreshold: &highDensityThreshold
+    formula: 40.0
+  highLoad: &highLoad
+    formula: 60.0
+  lowLoad: &lowLoad
+    formula: 40.0
+  moveSpeed: &moveSpeed
+    min: 0.00005 # km/h?
+    max: 0.0001
+    step: 0.00005
+    default: 0.00003
+  changeEveryMaxRounds: &changeEveryMaxRounds
+    formula: 50
+  leaderFailureProbability: &failureProb
+    min: 0.02
+    step: 0.01
+    max: 0.025
+    default: 0.005
+  leaderFailureProbsAlongTime: &leaderFailureProbsAlongTime
+    formula: 'List(500,9999,    550, 3.3,     10000000, 9999)' # schema is: [end-timestamp1, gaussian-right-prob1, end-timestamp2, gaussian-right-prob2, ...]
+    language: scala
+  workerFailureProbsAlongTime: &workerFailureProbsAlongTime
+    formula: 'List(100,9999,    1000000, 3.8)' # schema is: [end-timestamp1, gaussian-right-prob1, end-timestamp2, gaussian-right-prob2, ...]
+    language: scala
+  mobilityEnabled: &mobilityEnabled
+    min: 0
+    max: 1
+    step: 1
+    default: 1
+  requestProbabilitiesAlongTime: &requestProbabilitiesAlongTime
+    formula: 'List(50,100.0,    150, 3.5,     250, 3.0,     300, 50.0,    450, 3.5,    1000000, 3.80)'
+    language: scala
+  gcTime: &gcTime
+    formula: 100
+  allocationStrategy: &allocationStrategy
+    min: 0
+    max: 1
+    step: 1
+    default: 0
+              
+export:
+  - time
+  - molecule: activeRequestCount
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsReceived
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsHandled
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsUnhandled
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsDeclined
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsCompleted
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: requestsGarbage
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: areaLoad
+    aggregators: [max,min,mean]
+    value-filter: FilterNaN
+  - molecule: areaUtilization
+    aggregators: [max,min,mean]
+    value-filter: FilterNaN
+  - molecule: leader
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: relayCommunicationLoad
+    aggregators: [mean]
+    value-filter: FilterNaN
+  - molecule: meanWaitingTime
+    aggregators: [mean]
+    value-filter: FilterNaN
+  - molecule: numLeaderFailures
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: numWorkerFailures
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: statFailedRequests
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: statAllocatedRequests
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: statActiveWorkers
+    aggregators: [sum]
+    value-filter: FilterNaN
+  - molecule: statActiveConsumers
+    aggregators: [sum]
+    value-filter: FilterNaN
+#  - molecule: requestsCompletedAtLeader
+#    aggregators: [sum]
+#    value-filter: FilterNaN
+
+seeds:
+  scenario: *random
+  simulation: *random
+  
+incarnation: scafi
+
+# Roles
+# Worker = 1
+# Consumer = 2
+# Worker + Consumer = 3
+# Relay = 4
+# Worker + Relay = 5
+# Worker + Consumer + Relay = 7
+# CandidateManager = 8
+
+pools:
+  - pool: &program
+    - time-distribution:
+        type: ExponentialTime
+        parameters: [1]
+      type: Event
+      actions:
+        - type: RunScafiProgram
+          parameters: [it.unibo.casestudy.EdgeCloudEcosystem, 20]
+  - pool: &contents
+    - molecule: grain
+      concentration: *grain
+    - molecule: role
+      concentration: 5 # Worker + Relay
+#...........................
+    - molecule: commRadius
+      concentration: *commRadius
+    - molecule: batchFreq
+      concentration: *batchFreq
+    - molecule: highDensityThreshold
+      concentration: *highDensityThreshold
+    - molecule: lowDensityThreshold
+      concentration: *lowDensityThreshold
+    - molecule: highLoad
+      concentration: *highLoad
+    - molecule: lowLoad
+      concentration: *lowLoad
+    - molecule: changeEveryMaxRounds
+      concentration: *changeEveryMaxRounds
+    - molecule: failureProb
+      concentration: *failureProb
+    - molecule: gcTime
+      concentration: *gcTime
+    - molecule: workerFailureProbsAlongTime
+      concentration: *workerFailureProbsAlongTime
+  - pool: &fogContents
+    - molecule: grain
+      concentration: *grain
+    - molecule: role
+      concentration: 8 # Fog nodes (potential leaders)
+    #...........................
+    - molecule: commRadius
+      concentration: *commRadius
+    - molecule: batchFreq
+      concentration: *batchFreq
+    - molecule: highDensityThreshold
+      concentration: *highDensityThreshold
+    - molecule: lowDensityThreshold
+      concentration: *lowDensityThreshold
+    - molecule: highLoad
+      concentration: *highLoad
+    - molecule: lowLoad
+      concentration: *lowLoad
+    - molecule: changeEveryMaxRounds
+      concentration: *changeEveryMaxRounds
+    - molecule: failureProb
+      concentration: *failureProb
+    - molecule: gcTime
+      concentration: *gcTime
+    - molecule: allocationStrategy
+      concentration: *allocationStrategy
+    - molecule: leaderFailureProbsAlongTime
+      concentration: *leaderFailureProbsAlongTime
+  - pool: &consumerContents
+    - molecule: grain
+      concentration: *grain
+    - molecule: role
+      concentration: 2 # Consumer
+    #...........................
+    - molecule: commRadius
+      concentration: *commRadius
+    - molecule: batchFreq
+      concentration: *batchFreq
+    - molecule: highDensityThreshold
+      concentration: *highDensityThreshold
+    - molecule: lowDensityThreshold
+      concentration: *lowDensityThreshold
+    - molecule: highLoad
+      concentration: *highLoad
+    - molecule: lowLoad
+      concentration: *lowLoad
+    - molecule: changeEveryMaxRounds
+      concentration: *changeEveryMaxRounds
+    - molecule: failureProb
+      concentration: *failureProb
+    - molecule: mobilityEnabled
+      concentration: *mobilityEnabled
+    - molecule: requestProbabilitiesAlongTime
+      concentration: *requestProbabilitiesAlongTime
+    - molecule: gcTime
+      concentration: *gcTime
+  - pool: &move
+    - time-distribution:
+        type: ExponentialTime
+        parameters: [1,2] # rate, initial time
+      type: Event
+      actions:
+      - type: MoveToTarget
+        parameters: ["move_to", *moveSpeed]
+
+environment:
+  type: OSMEnvironment
+  parameters: [cesena.pbf, false, false]
+#  -b=12.24045,44.13541,12.24851,44.13886
+
+positions:
+  type: LatLongPosition
+
+network-model:
+  type: CustomConnectWithinDistance
+  parameters: [*commRadius]
+
+displacements:
+  - in: # Workers + relays
+      type: Rectangle #GeometricGradientRectangle
+      parameters: [200, 44.13621, 12.24045, 0.00345, 0.00706] #[250, 44.13621, 12.24045, 0.00345, 0.00706, 1.2, false, false]
+    programs:
+      - *program
+    contents: *contents
+  - in:
+      type: Rectangle #GeometricGradientRectangle
+      parameters: [50, 44.13621, 12.24045, 0.00345, 0.00706] #[250, 44.13621, 12.24045, 0.00345, 0.00706, 1.2, false, false]
+    programs:
+    - *program
+    contents: *fogContents
+  - in:
+      type: GeometricGradientRectangle
+      parameters: [450, 44.13621, 12.24045, 0.00345, 0.00706, 0.3, false, false]
+    programs: 
+      - *program
+      - *move
+    contents: *consumerContents
+  - in:
+      type: Rectangle
+      parameters: [50, 44.13670, 12.2454, 0.00075, 0.00106, 0.3, false, false]
+    programs:
+      - *program
+      - *move
+    contents: *consumerContents
+
+#  - in:
+#      type: Grid
+#      parameters: [44.13621, 12.24045, 44.13961, 12.24751, 0.0008, 0.0009, 0.00008, 0.00008]
+#    programs:
+#    - *program
+#    contents: *managersContent
